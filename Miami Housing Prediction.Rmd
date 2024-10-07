@@ -1,0 +1,461 @@
+---
+title: "data analysis project"
+author: "Jagriti Suneja"
+date: "2024-03-05"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r}
+split_data1 <-read.csv("/Users/jagritisuneja/Documents/research analysis project/split_data1.csv")
+summary(split_data1)
+```
+```{r}
+head(split_data1)
+```
+
+#Working on split_data1
+
+#counting of null values
+
+```{r}
+null_counts <- colSums(is.na(split_data1))
+print(null_counts)
+```
+The output indicates that there are no missing values (null values) in
+any of the variables in the split_data1 dataset. Each variable has a
+count of 0 for null values.
+
+#Data Preprocessing
+
+```{r}
+library(ggplot2)
+
+# Visualize the distribution of sale price with respect to month_sold
+ggplot(split_data1, aes(x = SALE_PRC)) +
+  geom_histogram(binwidth = 100000, fill = "blue", color = "black") +
+  labs(title = "Distribution of Sale Price by Month Sold",
+       x = "Sale Price ($)",
+       y = "Frequency") +
+  facet_wrap(~ month_sold)
+
+
+```
+The histogram shows that the distribution of sale prices is positively skewed. This means that there are more sales at lower prices and fewer sales at higher prices. The tail of the distribution extends to the right, indicating that there are a few sales at very high prices.
+The median sale price is likely lower than the mean sale price, because the distribution is skewed to the right.
+
+
+```{r}
+library(e1071)
+
+# Calculate skewness of sale price
+skewness(split_data1$SALE_PRC)
+
+```
+
+
+
+```{r}
+# Assume skewness value is stored in a variable called skewness_value
+skewness_value <- 2.998228
+
+if (skewness_value > 0) {
+  cat("The distribution is positively skewed, indicating a tail on the right side.")
+} else if (skewness_value < 0) {
+  cat("The distribution is negatively skewed, indicating a tail on the left side.")
+} else {
+  cat("The distribution is approximately symmetric.")
+}
+
+```
+A skewness value of 2.998228 tells us that the distribution of sale prices in the Miami housing dataset is skewed towards higher prices i.e. it is positively skewed.Most houses in Miami are cheaper in the months of January, February and March, but there are a few very expensive ones that push the average price higher than what most houses actually cost.
+
+```{r}
+# Identify numeric columns
+numeric_cols <- sapply(split_data1, is.numeric)
+
+# Create histograms for numeric features in the dataset
+par(mfrow = c(4, 4))  
+par(mar = c(4, 4, 2, 2))  
+for (col in names(split_data1)[numeric_cols]) {
+  hist(split_data1[[col]], main = col, xlab = col)
+}
+
+
+```
+
+```{r}
+
+# Fit linear regression model
+lm_model <- lm(SALE_PRC ~ LATITUDE + LONGITUDE + PARCELNO + SALE_PRC +
+                 LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST +
+                 OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI +
+                 HWY_DIST + age + avno60plus + month_sold + structure_quality,
+               data = split_data1)
+
+# Summary of the linear regression model
+summary(lm_model)
+
+
+
+```
+
+#Log transformatiom
+
+
+```{r}
+# Log transformation of sales price
+split_data1$SALE_PRC <- log(split_data1$SALE_PRC)
+
+# Plot histograms before and after log transformation
+par(mfrow = c(1, 2))  
+
+# Before log transformation
+hist(split_data1$SALE_PRC, main = "Before Log Transformation",
+     xlab = "Sale Price ($)", col = "lightblue")
+
+# After log transformation
+hist(split_data1$SALE_PRC, main = "After Log Transformation",
+     xlab = "Logged Sale Price ($)", col = "lightgreen")
+
+```
+
+To remove skewness and create a more normal distribution for the sale price data, I applied a log transformation to the 'salePrice' variable. This addressed the variance in the original data, resulting in a distribution better suited for analysis. The modified dataset includes a new variable, 'logged_salePrice,' containing the transformed values. By compressing the higher sale prices and spreading out the lower ones, the log transformation minimizes the influence of outliers and the asymmetry present in the original data distribution. This change helps the data better conform to the assumptions of various statistical models.
+
+# computing correlation
+
+```{r}
+library(corrplot)
+
+numerical_variables <- split_data1[, c("SALE_PRC", "LND_SQFOOT", "TOT_LVG_AREA", "SPEC_FEAT_VAL", "RAIL_DIST", "OCEAN_DIST", "WATER_DIST", "CNTR_DIST", "SUBCNTR_DI", "HWY_DIST", "age", "avno60plus", "structure_quality")]
+
+# Calculate correlation matrix
+correlation_matrix <- cor(numerical_variables)
+print(correlation_matrix)
+# Visualize correlation matrix
+corrplot(correlation_matrix, method = "circle", type = "upper", order = "hclust", tl.cex = 0.7)
+
+```
+
+Positive Correlations:
+Total Living Area (TOT_LVG_AREA): This shows a strong positive correlation (0.718) with log sale price. Larger living areas tend to correspond with higher sale prices.
+Spec Features Value (SPEC_FEAT_VAL): This also has a moderate positive correlation (0.510) with log sale price, suggesting that houses with more special features may sell for more.
+Water Distance (WATER_DIST): This has a surprising positive correlation (0.536) with log sale price. It might be beneficial to investigate this further to understand the context (e.g., waterfront properties might be desirable).
+Highway Distance (HWY_DIST): There's a weak positive correlation (0.306) with log sale price. This could be due to factors like accessibility to highways being beneficial in some cases.
+Structure Quality (structure_quality): This has a moderate positive correlation (0.466) with log sale price, indicating that higher quality structures tend to sell for more.
+
+Negative Correlations:
+Distance to Sub-Center (SUBCNTR_DI): This shows a moderate negative correlation (-0.408) with log sale price. Greater distance from sub-centers might imply lower sale prices.
+Age (age): There's a weak negative correlation (-0.213) with log sale price. Older houses might sell for slightly less.
+Distance to Center (CNTR_DIST): This has a weak negative correlation (-0.230) with log sale price. Similar to distance to sub-center, this could indicate lower prices further from city centers.
+
+Neutral Correlations:
+Land Square Footage (LND_SQFOOT): This has a very weak positive correlation (0.355) with log sale price. The relationship might be negligible.
+Distance to Rail (RAIL_DIST): There's a very weak negative correlation (-0.068) with log sale price. The impact seems negligible.
+Distance to Ocean (OCEAN_DIST): This shows a weak negative correlation (-0.212) with log sale price. The influence on sale price seems minor.
+Percentage of Residents Over 60 (avno60plus): This has a near-zero correlation (-0.016) with log sale price, suggesting minimal impact.
+
+
+# multicolinearity
+
+```{r}
+# Load the 'car' package for the 'vif' function
+library(car)
+
+# Create a dataframe with the predictors
+predictors <- split_data1[, c("LATITUDE", "LONGITUDE", "PARCELNO", "SALE_PRC", "LND_SQFOOT", 
+                       "TOT_LVG_AREA", "SPEC_FEAT_VAL", "RAIL_DIST", "OCEAN_DIST", 
+                       "WATER_DIST", "CNTR_DIST", "SUBCNTR_DI", "HWY_DIST", "age", 
+                       "avno60plus", "month_sold", "structure_quality")]
+
+# Calculate VIF
+vif_result <- vif(lm(SALE_PRC ~ ., data = predictors))
+
+# View the VIF results
+print(vif_result)
+
+
+```
+
+```{r}
+# Load the 'car' package for the 'vif' function
+library(car)
+
+# Create a dataframe with the predictors
+predictors1 <- split_data1[, c("LATITUDE", "PARCELNO", "SALE_PRC", "LND_SQFOOT", 
+                       "TOT_LVG_AREA", "SPEC_FEAT_VAL", "RAIL_DIST", "OCEAN_DIST", 
+                       "WATER_DIST", "CNTR_DIST", "SUBCNTR_DI", "HWY_DIST", "age", 
+                       "avno60plus", "month_sold", "structure_quality")]
+
+# Calculate VIF
+vif_result <- vif(lm(SALE_PRC ~ ., data = predictors1))
+
+# View the VIF results
+print(vif_result)
+
+```
+```{r}
+# Load the 'car' package for the 'vif' function
+library(car)
+
+# Create a dataframe with the predictors
+predictors2 <- split_data1[, c("LATITUDE", "PARCELNO", "SALE_PRC", "LND_SQFOOT", 
+                       "TOT_LVG_AREA", "SPEC_FEAT_VAL", "RAIL_DIST", "OCEAN_DIST", 
+                       "WATER_DIST", "SUBCNTR_DI", "HWY_DIST", "age", 
+                       "avno60plus", "month_sold", "structure_quality")]
+
+# Calculate VIF
+vif_result <- vif(lm(SALE_PRC ~ ., data = predictors2))
+
+# View the VIF results
+print(vif_result)
+```
+#LM model after removing Longitude and CNTR_DIST 
+
+```{r}
+lm_model <- lm(SALE_PRC ~ LATITUDE  + TOT_LVG_AREA + LND_SQFOOT+ SPEC_FEAT_VAL + 
+                  RAIL_DIST + OCEAN_DIST + WATER_DIST + SUBCNTR_DI + 
+                  HWY_DIST +age + avno60plus + structure_quality+month_sold ,
+               data = split_data1)
+
+# Summary of the model
+summary(lm_model)
+```
+
+#stepwise regression
+
+```{r}
+# Fit initial model with all predictors
+initial_model <- lm(split_data1$SALE_PRC~ ., data = predictors2)
+
+# Perform stepwise regression
+final_model <- step(initial_model, direction = "both")
+
+# Summary of the final model
+summary(final_model)
+
+```
+
+# interaction model
+
+Location and Parcel Number: Interaction between LATITUDE and PARCELNO could capture how the effect of latitude on sale price varies depending on the parcel number.
+
+Property Size and Specific Feature Value: Interaction between TOT_LVG_AREA and SPEC_FEAT_VAL might represent how the impact of property size on sale price changes with the value of specific features.
+
+Distance to Rail and Distance to Water: Interaction between RAIL_DIST and WATER_DIST could capture how the impact of proximity to railways on sale price varies depending on the distance to water bodies.
+
+Location and Distance to Central Business District: Interaction between LATITUDE and CNTR_DIST might represent how the effect of latitude on sale price changes with the distance to the central business district.
+
+Age and Month Sold: Interaction between age and month_sold could capture how the impact of property age on sale price varies depending on the month of sale.
+
+```{r}
+split_data1$LPA <- split_data1$LATITUDE * split_data1$PARCELNO
+split_data1$SSF <- split_data1$TOT_LVG_AREA * split_data1$SPEC_FEAT_VAL
+split_data1$RailWater <- split_data1$RAIL_DIST * split_data1$WATER_DIST
+split_data1$LACD <- split_data1$LATITUDE * split_data1$CNTR_DIST
+split_data1$AMS <- split_data1$age * split_data1$month_sold
+
+
+```
+
+
+```{r}
+# Add interaction terms to the model
+lm_with_interactions <- lm(SALE_PRC ~ LATITUDE + PARCELNO + SALE_PRC + 
+                            LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + 
+                            SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality +
+                            LPA + SSF + RailWater+ LACD+ AMS,
+                          data = split_data1)
+
+# Summary of the model with interaction terms
+summary(lm_with_interactions)
+
+
+```
+
+
+```{r}
+# Fit initial model with all predictors
+m1<-lm( SALE_PRC ~ LATITUDE + PARCELNO + SALE_PRC + LND_SQFOOT + 
+    TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + SUBCNTR_DI + HWY_DIST + 
+    age + month_sold + structure_quality + LPA + SSF + RailWater + 
+    LACD + AMS, data = split_data1)
+
+# Perform stepwise regression
+final_model2 <- step(m1, direction = "both")
+
+# Summary of the final model
+summary(final_model2)
+
+```
+
+```{r}
+m2<-lm(SALE_PRC ~ LATITUDE + PARCELNO + LND_SQFOOT + TOT_LVG_AREA + 
+    SPEC_FEAT_VAL + RAIL_DIST + SUBCNTR_DI + HWY_DIST + age + 
+    structure_quality + LPA + SSF + RailWater + LACD, data = split_data1)
+summary(m2)
+```
+
+```{r}
+
+library(caret)
+
+# Set the seed for reproducibility
+set.seed(123)
+
+ctrl <- trainControl(method = "cv",   # Use cross-validation
+                     number = 7,      # Number of folds
+                     verboseIter = TRUE)  # Print progress
+
+model <- train(SALE_PRC ~ LATITUDE + PARCELNO + SALE_PRC + 
+                            LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + 
+                            SUBCNTR_DI + HWY_DIST + age + structure_quality +
+                            LPA + SSF + RailWater+ LACD+ AMS, 
+               data = split_data1, 
+               method = "lm",    # linear regression 
+               trControl = ctrl)
+
+
+print(model)
+```
+
+
+
+
+```{r}
+# Step 1: Extract residuals from the fitted model
+residuals <- residuals(m2)
+
+# Step 2: Plot residuals against fitted values (to check for homoscedasticity)
+plot(fitted(m2), residuals,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+
+# Add a horizontal line at y = 0 for reference
+abline(h = 0, col = "red")
+
+# Step 3: Plot residuals against each predictor variable (to check for linearity and independence)
+par(mfrow = c(3, 4))  # Setting up multiple plots
+for (predictor in colnames(split_data1)[-1]) {
+  plot(split_data1[[predictor]], residuals,
+       xlab = predictor,
+       ylab = "Residuals",
+       main = paste("Residuals vs", predictor))
+}
+
+# Step 4: QQ plot and histogram to check normality of residuals
+par(mfrow = c(1, 2))  # Resetting to single plot
+qqnorm(residuals, main = "Normal Q-Q Plot")
+qqline(residuals)
+hist(residuals, main = "Histogram of Residuals", xlab = "Residuals")
+
+```
+
+#ridge regression
+```{r}
+library(caret)
+
+# Set the seed for reproducibility
+set.seed(123)
+
+# Define the control parameters for cross-validation
+ctrl <- trainControl(method = "cv",   # Use cross-validation
+                     number = 7,      # Number of folds
+                     verboseIter = TRUE)  # Print progress
+
+# Train the ridge regression model
+ridge_model <- train(SALE_PRC ~ LATITUDE + PARCELNO + LND_SQFOOT + TOT_LVG_AREA + 
+    SPEC_FEAT_VAL + RAIL_DIST + SUBCNTR_DI + HWY_DIST + age + 
+    structure_quality + LPA + SSF + RailWater + LACD, data = split_data1,
+                     method = "ridge",    # ridge regression 
+                     trControl = ctrl)
+
+# Print the ridge regression model
+print(ridge_model)
+
+
+```
+
+```{r}
+print(ridge_model)
+```
+
+
+```{r}
+# Create a vector for partitioning
+partition <- sample(2, nrow(split_data1), replace = TRUE, prob = c(0.80, 0.20))
+
+# Check the first few elements of the partition vector
+head(partition)
+
+# Create logical vectors to select training and test sets
+train_indices <- partition == 1
+test_indices <- partition == 2
+
+# Create training and test datasets
+train_data <- split_data1[train_indices, ]
+test_data <- split_data1[test_indices, ]
+
+# Check the first few rows of the training dataset
+head(train_data)
+
+```
+
+```{r}
+test <- split_data1[partition == 2,]
+head(test)
+dim(test)
+```
+
+```{r}
+prediction <- predict(ridge_model, test)
+head(prediction)
+```
+
+```{r}
+actual = test$SALE_PRC
+head(actual)
+```
+
+```{r}
+cor(prediction, actual)
+```
+
+```{r}
+plot(prediction, actual)
+```
+
+
+```{r}
+# Extract RMSE, R-squared, and MAE from ridge regression
+ridgeRMSE <- min(ridge_model$results$RMSE)
+ridgeRsquared <- max(ridge_model$results$Rsquared)
+ridgeMAE <- min(ridge_model$results$MAE)
+
+# Compare the performance of linear regression and ridge regression
+comparison <- data.frame(
+  Model = c("Linear Regression", "Ridge Regression"),
+  RMSE = c(0.2701987, ridgeRMSE),
+  Rsquared = c(0.7921558, ridgeRsquared),
+  MAE = c(0.1972077, ridgeMAE)
+)
+
+print(comparison)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
